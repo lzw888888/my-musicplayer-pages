@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的音乐合集</title>
+    <style>
+        * {margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑}
+        body {max-width:700px;margin:60px auto;padding:0 20px;}
+        h2 {text-align:center;margin-bottom:20px;color:#222;}
+
+        /* 标签栏 */
+        .tabs {
+            display:flex;
+            border-bottom:1px solid #eee;
+            margin-bottom:15px;
+        }
+        .tab-item {
+            flex:1;
+            text-align:center;
+            padding:10px 0;
+            cursor:pointer;
+            color:#666;
+            border-bottom:2px solid transparent;
+            transition:all .2s;
+        }
+        .tab-item.active {
+            color:#4488ff;
+            border-bottom-color:#4488ff;
+            font-weight:bold;
+        }
+        .tab-panel {display:none;}
+        .tab-panel.active {display:block;}
+
+        .search-box {margin-bottom:15px;}
+        .search-box input {
+            width:100%;
+            padding:10px 14px;
+            border:1px solid #ddd;
+            border-radius:6px;
+            font-size:15px;
+        }
+
+        .now-name {
+            text-align:center;
+            font-size:16px;
+            color:#333;
+            margin-bottom:10px;
+            font-weight:500;
+        }
+
+        .audio-box {margin-bottom:15px;}
+        audio {width:100%;}
+
+        .control-wrap {
+            margin:10px 0;
+            display:flex;
+            gap:10px;
+            justify-content:center;
+            flex-wrap:wrap;
+        }
+        .control-wrap button {
+            padding:6px 12px;
+            border:none;
+            background:#4488ff;
+            color:#fff;
+            border-radius:4px;
+            cursor:pointer;
+        }
+
+        .list-title {margin:20px 0 8px;font-size:18px;}
+        .list-container {
+            height: 320px;
+            overflow-y: scroll;
+            border:1px solid #eee;
+            border-radius:6px;
+        }
+        .music-list {list-style:none}
+        .music-list li {
+            padding:12px 15px;
+            border-bottom:1px solid #eee;
+            cursor:pointer;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            user-select:none;
+        }
+        .music-list li:last-child {border-bottom:none}
+        .music-list li:hover {background:#f5f8ff}
+        .music-list li.active {background:#e6f0ff;color:#0056cc;font-weight:bold}
+        .music-list li.dragging {opacity:.5;background:#e0eaff;}
+        .music-list li.drop-above {border-top:2px solid #4488ff;}
+        .music-list li.drop-below {border-bottom:2px solid #4488ff;}
+
+        /* 列表项操作按钮 */
+        .item-actions {
+            display:flex;
+            gap:6px;
+            flex-shrink:0;
+        }
+        .item-actions button {
+            padding:4px 8px;
+            font-size:12px;
+            border:1px solid #4488ff;
+            background:#fff;
+            color:#4488ff;
+            border-radius:3px;
+            cursor:pointer;
+        }
+        .item-actions button:hover {
+            background:#4488ff;
+            color:#fff;
+        }
+        .item-actions .remove-btn {
+            border-color:#ff6b6b;
+            color:#ff6b6b;
+        }
+        .item-actions .remove-btn:hover {
+            background:#ff6b6b;
+            color:#fff;
+        }
+
+        /* 专辑面板 */
+        .album-header {
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:10px;
+        }
+        .album-header button {
+            padding:6px 12px;
+            border:none;
+            background:#4488ff;
+            color:#fff;
+            border-radius:4px;
+            cursor:pointer;
+        }
+        .album-list {
+            list-style:none;
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+            gap:12px;
+        }
+        .album-item {
+            border:1px solid #eee;
+            border-radius:6px;
+            padding:15px;
+            cursor:pointer;
+            text-align:center;
+            position:relative;
+            transition:all .2s;
+        }
+        .album-item:hover {
+            border-color:#4488ff;
+            background:#f5f8ff;
+        }
+        .album-item.dragging {opacity:.5;}
+        .album-item .album-name {
+            font-size:15px;
+            margin-bottom:5px;
+            word-break:break-all;
+        }
+        .album-item .album-count {
+            font-size:12px;
+            color:#999;
+        }
+        .album-item .del-album {
+            position:absolute;
+            top:5px;
+            right:8px;
+            color:#ccc;
+            font-size:16px;
+            cursor:pointer;
+            display:none;
+        }
+        .album-item:hover .del-album {display:block;}
+        .album-item .del-album:hover {color:#ff6b6b;}
+
+        /* 专辑详情返回栏 */
+        .album-detail-header {
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-bottom:10px;
+        }
+        .back-btn {
+            padding:4px 10px;
+            border:1px solid #ddd;
+            background:#fff;
+            border-radius:4px;
+            cursor:pointer;
+            font-size:13px;
+        }
+
+        /* 空状态提示 */
+        .empty-tip {
+            text-align:center;
+            color:#999;
+            padding:40px 0;
+            font-size:14px;
+        }
+
+        /* 弹窗遮罩 */
+        .modal-mask {
+            position:fixed;
+            top:0;left:0;right:0;bottom:0;
+            background:rgba(0,0,0,.4);
+            display:none;
+            justify-content:center;
+            align-items:center;
+            z-index:999;
+        }
+        .modal-mask.show {display:flex;}
+        .modal-box {
+            background:#fff;
+            border-radius:8px;
+            width:90%;
+            max-width:360px;
+            padding:20px;
+        }
+        .modal-title {
+            font-size:16px;
+            margin-bottom:15px;
+            font-weight:bold;
+        }
+        .modal-body {
+            max-height:260px;
+            overflow-y:auto;
+            margin-bottom:15px;
+        }
+        .modal-check-item {
+            padding:8px 0;
+            display:flex;
+            align-items:center;
+            gap:8px;
+            cursor:pointer;
+        }
+        .modal-input {
+            width:100%;
+            padding:8px 10px;
+            border:1px solid #ddd;
+            border-radius:4px;
+            margin-bottom:15px;
+        }
+        .modal-footer {
+            display:flex;
+            justify-content:flex-end;
+            gap:10px;
+        }
+        .modal-footer button {
+            padding:6px 14px;
+            border-radius:4px;
+            cursor:pointer;
+            border:none;
+        }
+        .btn-cancel {
+            background:#f0f0f0;
+            color:#333;
+        }
+        .btn-confirm {
+            background:#4488ff;
+            color:#fff;
+        }
+    </style>
+</head>
+<body>
+    <h2>我的音乐合集</h2>
+
+    <!-- 标签栏 -->
+    <div class="tabs">
+        <div class="tab-item active" data-tab="music">音乐列表</div>
+        <div class="tab-item" data-tab="album">专辑</div>
+    </div>
+
+    <!-- 音乐列表面板 -->
+    <div class="tab-panel active" id="musicPanel">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="搜索歌曲名...">
+        </div>
+
+        <div class="now-name" id="currentSongName"></div>
+
+        <div class="audio-box">
+            <audio id="player" controls preload="metadata">
+                浏览器不支持音频
+            
+        </div>
+
+        <div class="control-wrap">
+            <button id="prev">上一首</button>
+            <button id="next">下一首</button>
+            <button id="modeBtn">列表循环</button>
+        </div>
+
+        <h3 class="list-title">歌曲列表</h3>
+        <div class="list-container">
+            <ul class="music-list" id="listWrap"></ul>
+        </div>
+    </div>
+
+    <!-- 专辑面板 -->
+    <div class="tab-panel" id="albumPanel">
+        <!-- 专辑列表视图 -->
+        <div id="albumListView">
+            <div class="album-header">
+                <span>我的专辑</span>
+                <button id="createAlbumBtn">新建专辑</button>
+            </div>
+            <!-- 专辑搜索框 -->
+            <div class="search-box">
+                <input type="text" id="albumSearchInput" placeholder="搜索专辑名...">
+            </div>
+            <ul class="album-list" id="albumListWrap"></ul>
+            <div class="empty-tip" id="albumEmptyTip" style="display:none;">没有找到匹配的专辑</div>
+        </div>
+
+        <!-- 专辑详情视图 -->
+        <div id="albumDetailView" style="display:none;">
+            <div class="album-detail-header">
+                <button class="back-btn" id="backAlbumList">返回</button>
+                <span id="currentAlbumName" style="font-weight:bold;"></span>
+            </div>
+            <!-- 专辑内歌曲搜索框 -->
+            <div class="search-box">
+                <input type="text" id="albumSongSearchInput" placeholder="搜索专辑内歌曲...">
+            </div>
+            <div class="list-container">
+                <ul class="music-list" id="albumSongList"></ul>
+            </div>
+            <div class="empty-tip" id="albumSongEmptyTip" style="display:none;">没有找到匹配的歌曲</div>
+        </div>
+    </div>
+
+    <!-- 加入专辑弹窗 -->
+    <div class="modal-mask" id="addAlbumModal">
+        <div class="modal-box">
+            <div class="modal-title">加入专辑</div>
+            <div class="modal-body" id="addAlbumCheckList"></div>
+            <input type="text" class="modal-input" id="newAlbumInput" placeholder="输入新专辑名称，可直接新建并加入">
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeModal('addAlbumModal')">取消</button>
+                <button class="btn-confirm" id="confirmAddAlbum">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移出专辑弹窗 -->
+    <div class="modal-mask" id="removeAlbumModal">
+        <div class="modal-box">
+            <div class="modal-title">选择要移出的专辑</div>
+            <div class="modal-body" id="removeAlbumCheckList"></div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeModal('removeAlbumModal')">取消</button>
+                <button class="btn-confirm" id="confirmRemoveAlbum">确认移出</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ========== 基础数据 ==========
+let musicList = [
+    "OH NO NO NO FUNK - DJ KVNXD.mp3",
+    "JELLY BASS (Explicit) - Errores.mp3",
+    "b.mp3",
+    "bai.mp3",
+    "c.mp3",
+    "d.mp3",
+    "n.mp3",
+    "t.mp3",
+    "w.mp3",
+    "y.mp3",
+    "maybe (prod. lukrative & mixed matches) - mixed matches.mp3",
+    "A Little Story (小故事) - Valentin.mp3",
+    "Rather Be - Clean Bandit & Jess Glynne.mp3",
+    "whoa (mind in awe) - XXXTentacion.mp3",
+];
+
+// 专辑数据
+let albums = [];
+let albumIdCounter = 1;
+let currentAlbumId = null; // 当前查看的专辑ID
+
+// 当前操作的歌曲文件名（弹窗用）
+let activeSongFile = null;
+
+// ========== 工具函数 ==========
+function getPureName(fileName) {
+    const dotIndex = fileName.lastIndexOf(".");
+    if(dotIndex === -1) return fileName;
+    return fileName.substring(0, dotIndex);
+}
+
+// ========== 播放核心逻辑 ==========
+const modeOrder = ["list", "single", "random"];
+const modeText = {
+    list: "列表循环",
+    single: "单曲循环",
+    random: "随机播放"
+};
+let modeIndex = 0;
+let playMode = modeOrder[modeIndex];
+
+const player = document.getElementById("player");
+const listWrap = document.getElementById("listWrap");
+const prevBtn = document.getElementById("prev");
+const nextBtn = document.getElementById("next");
+const searchInput = document.getElementById("searchInput");
+const modeBtn = document.getElementById("modeBtn");
+const currentSongName = document.getElementById("currentSongName");
+
+let currentIndex = 0;
+let showList = [];
+
+modeBtn.onclick = () => {
+    modeIndex = (modeIndex + 1) % modeOrder.length;
+    playMode = modeOrder[modeIndex];
+    modeBtn.innerText = modeText[playMode];
+};
+
+function playSong(idx) {
+    if (idx < 0 || idx >= musicList.length) return;
+    currentIndex = idx;
+    const fileName = musicList[currentIndex];
+    player.src = fileName;
+    player.load();
+    player.play();
+    currentSongName.innerText = getPureName(fileName);
+    filterSong();
+    renderAlbumSongList(); // 同步专辑内高亮
+}
+
+function filterSong() {
+    const keyword = searchInput.value.trim().toLowerCase();
+    showList = musicList.filter(file => {
+        const pure = getPureName(file).toLowerCase();
+        return pure.includes(keyword);
+    });
+    renderList();
+}
+
+function playNext() {
+    if (playMode === "single") {
+        playSong(currentIndex);
+        return;
+    }
+    if (playMode === "random") {
+        let rnd;
+        do {
+            rnd = Math.floor(Math.random() * musicList.length);
+        } while (rnd === currentIndex && musicList.length > 1);
+        playSong(rnd);
+        return;
+    }
+    playSong((currentIndex + 1) % musicList.length);
+}
+nextBtn.onclick = playNext;
+
+function playPrev() {
+    if (playMode === "random") {
+        let rnd;
+        do {
+            rnd = Math.floor(Math.random() * musicList.length);
+        } while (rnd === currentIndex && musicList.length > 1);
+        playSong(rnd);
+        return;
+    }
+    playSong((currentIndex - 1 + musicList.length) % musicList.length);
+}
+prevBtn.onclick = playPrev;
+
+player.onended = playNext;
+searchInput.addEventListener("input", filterSong);
+
+// ========== 渲染音乐列表 ==========
+function renderList() {
+    listWrap.innerHTML = "";
+    showList.forEach(file => {
+        const li = document.createElement("li");
+        li.draggable = false;
+        li.dataset.file = file;
+
+        const nameSpan = document.createElement("span");
+        nameSpan.innerText = getPureName(file);
+        if (musicList[currentIndex] === file) {
+            li.classList.add("active");
+        }
+
+        // 整行点击播放
+        li.onclick = () => {
+            const idx = musicList.findIndex(f => f === file);
+            playSong(idx);
+        };
+
+        // 操作按钮
+        const actions = document.createElement("div");
+        actions.className = "item-actions";
+        const addBtn = document.createElement("button");
+        addBtn.innerText = "加入专辑";
+        addBtn.onclick = (e) => {
+            e.stopPropagation();
+            openAddAlbumModal(file);
+        };
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "remove-btn";
+        removeBtn.innerText = "移出专辑";
+        removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            openRemoveAlbumModal(file);
+        };
+        actions.appendChild(addBtn);
+        actions.appendChild(removeBtn);
+
+        li.appendChild(nameSpan);
+        li.appendChild(actions);
+        listWrap.appendChild(li);
+    });
+    // 绑定长按拖拽
+    bindLongPressDrag(listWrap, 'li', (dragItem, targetItem, position) => {
+        const dragFile = dragItem.dataset.file;
+        const targetFile = targetItem.dataset.file;
+        const dragIdx = musicList.indexOf(dragFile);
+        const targetIdx = musicList.indexOf(targetFile);
+        if (dragIdx === -1 || targetIdx === -1) return;
+        
+        // 移动数组元素
+        const [removed] = musicList.splice(dragIdx, 1);
+        const newIdx = position === 'above' ? targetIdx : targetIdx + 1;
+        musicList.splice(newIdx > dragIdx ? newIdx - 1 : newIdx, 0, removed);
+        
+        // 更新当前播放索引
+        if (currentIndex === dragIdx) currentIndex = newIdx > dragIdx ? newIdx - 1 : newIdx;
+        else if (dragIdx < currentIndex && newIdx > currentIndex) currentIndex--;
+        else if (dragIdx > currentIndex && newIdx <= currentIndex) currentIndex++;
+        
+        filterSong();
+    });
+}
+
+// ========== 标签切换 ==========
+document.querySelectorAll('.tab-item').forEach(tab => {
+    tab.onclick = () => {
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + 'Panel').classList.add('active');
+    };
+});
+
+// ========== 专辑相关 ==========
+// 专辑搜索过滤
+let showAlbums = [];
+function filterAlbums() {
+    const keyword = document.getElementById('albumSearchInput').value.trim().toLowerCase();
+    showAlbums = albums.filter(album => {
+        return album.name.toLowerCase().includes(keyword);
+    });
+    renderAlbumList();
+    // 空状态提示
+    document.getElementById('albumEmptyTip').style.display = showAlbums.length === 0 ? 'block' : 'none';
+}
+document.getElementById('albumSearchInput').addEventListener('input', filterAlbums);
+
+// 渲染专辑列表
+function renderAlbumList() {
+    const wrap = document.getElementById('albumListWrap');
+    wrap.innerHTML = '';
+    showAlbums.forEach(album => {
+        const li = document.createElement('li');
+        li.className = 'album-item';
+        li.dataset.id = album.id;
+        li.innerHTML = `
+            <span class="del-album" data-id="${album.id}">×</span>
+            <div class="album-name">${album.name}</div>
+            <div class="album-count">${album.songs.length} 首</div>
+        `;
+        li.onclick = (e) => {
+            if (e.target.classList.contains('del-album')) return;
+            openAlbumDetail(album.id);
+        };
+        li.querySelector('.del-album').onclick = (e) => {
+            e.stopPropagation();
+            if (confirm(`确定删除专辑「${album.name}」吗？`)) {
+                albums = albums.filter(a => a.id !== album.id);
+                filterAlbums();
+            }
+        };
+        wrap.appendChild(li);
+    });
+
+    // 专辑列表长按拖拽
+    bindLongPressDrag(wrap, '.album-item', (dragItem, targetItem, position) => {
+        const dragId = parseInt(dragItem.dataset.id);
+        const targetId = parseInt(targetItem.dataset.id);
+        const dragIdx = albums.findIndex(a => a.id === dragId);
+        const targetIdx = albums.findIndex(a => a.id === targetId);
+        if (dragIdx === -1 || targetIdx === -1) return;
+
+        const [removed] = albums.splice(dragIdx, 1);
+        const newIdx = position === 'above' ? targetIdx : targetIdx + 1;
+        albums.splice(newIdx > dragIdx ? newIdx - 1 : newIdx, 0, removed);
+        filterAlbums();
+    });
+}
+
+// 新建专辑按钮
+document.getElementById('createAlbumBtn').onclick = () => {
+    const name = prompt('请输入专辑名称：');
+    if (!name || !name.trim()) return;
+    if (albums.some(a => a.name === name.trim())) {
+        alert('该专辑已存在');
+        return;
+    }
+    albums.push({
+        id: albumIdCounter++,
+        name: name.trim(),
+        songs: []
+    });
+    filterAlbums();
+};
+
+// 打开专辑详情
+function openAlbumDetail(id) {
+    currentAlbumId = id;
+    const album = albums.find(a => a.id === id);
+    if (!album) return;
+    document.getElementById('currentAlbumName').innerText = album.name;
+    document.getElementById('albumListView').style.display = 'none';
+    document.getElementById('albumDetailView').style.display = 'block';
+    // 清空搜索框
+    document.getElementById('albumSongSearchInput').value = '';
+    filterAlbumSongs();
+}
+
+// 返回专辑列表
+document.getElementById('backAlbumList').onclick = () => {
+    currentAlbumId = null;
+    document.getElementById('albumDetailView').style.display = 'none';
+    document.getElementById('albumListView').style.display = 'block';
+};
+
+// 专辑内歌曲搜索过滤
+let showAlbumSongs = [];
+function filterAlbumSongs() {
+    if (!currentAlbumId) return;
+    const album = albums.find(a => a.id === currentAlbumId);
+    if (!album) return;
+    
+    const keyword = document.getElementById('albumSongSearchInput').value.trim().toLowerCase();
+    showAlbumSongs = album.songs.filter(file => {
+        const pure = getPureName(file).toLowerCase();
+        return pure.includes(keyword);
+    });
+    renderAlbumSongList();
+    // 空状态提示
+    document.getElementById('albumSongEmptyTip').style.display = showAlbumSongs.length === 0 ? 'block' : 'none';
+}
+document.getElementById('albumSongSearchInput').addEventListener('input', filterAlbumSongs);
+
+// 渲染专辑内歌曲列表
+function renderAlbumSongList() {
+    const wrap = document.getElementById('albumSongList');
+    if (!currentAlbumId) return;
+    const album = albums.find(a => a.id === currentAlbumId);
+    if (!album) return;
+
+    wrap.innerHTML = '';
+    showAlbumSongs.forEach(file => {
+        const li = document.createElement('li');
+        li.dataset.file = file;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.innerText = getPureName(file);
+        if (musicList[currentIndex] === file) {
+            li.classList.add('active');
+        }
+
+        // 整行点击播放
+        li.onclick = () => {
+            const idx = musicList.findIndex(f => f === file);
+            if (idx !== -1) playSong(idx);
+        };
+
+        const actions = document.createElement('div');
+        actions.className = "item-actions";
+        const removeBtn = document.createElement('button');
+        removeBtn.className = "remove-btn";
+        removeBtn.innerText = "移出";
+        removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            album.songs = album.songs.filter(s => s !== file);
+            filterAlbumSongs();
+            filterAlbums(); // 同步更新专辑列表的歌曲数量
+        };
+        actions.appendChild(removeBtn);
+
+        li.appendChild(nameSpan);
+        li.appendChild(actions);
+        wrap.appendChild(li);
+    });
+
+    // 专辑内歌曲长按拖拽排序
+    bindLongPressDrag(wrap, 'li', (dragItem, targetItem, position) => {
+        const dragFile = dragItem.dataset.file;
+        const targetFile = targetItem.dataset.file;
+        const dragIdx = album.songs.indexOf(dragFile);
+        const targetIdx = album.songs.indexOf(targetFile);
+        if (dragIdx === -1 || targetIdx === -1) return;
+
+        const [removed] = album.songs.splice(dragIdx, 1);
+        const newIdx = position === 'above' ? targetIdx : targetIdx + 1;
+        album.songs.splice(newIdx > dragIdx ? newIdx - 1 : newIdx, 0, removed);
+        filterAlbumSongs();
+    });
+}
+
+// ========== 加入专辑弹窗 ==========
+function openAddAlbumModal(file) {
+    activeSongFile = file;
+    const list = document.getElementById('addAlbumCheckList');
+    list.innerHTML = '';
+    
+    if (albums.length === 0) {
+        list.innerHTML = '<div style="color:#999;text-align:center;padding:20px 0;">暂无专辑，可在下方新建</div>';
+    } else {
+        albums.forEach(album => {
+            const hasSong = album.songs.includes(file);
+            const item = document.createElement('label');
+            item.className = 'modal-check-item';
+            item.innerHTML = `
+                <input type="checkbox" value="${album.id}" ${hasSong ? 'checked disabled' : ''}>
+                <span>${album.name}${hasSong ? '（已在该专辑）' : ''}</span>
+            `;
+            list.appendChild(item);
+        });
+    }
+    
+    document.getElementById('newAlbumInput').value = '';
+    openModal('addAlbumModal');
+}
+
+document.getElementById('confirmAddAlbum').onclick = () => {
+    if (!activeSongFile) return;
+    const checkedIds = Array.from(document.querySelectorAll('#addAlbumCheckList input:checked:not(:disabled)'))
+        .map(input => parseInt(input.value));
+    const newName = document.getElementById('newAlbumInput').value.trim();
+
+    // 新建专辑
+    if (newName) {
+        if (albums.some(a => a.name === newName)) {
+            alert('专辑名已存在');
+            return;
+        }
+        const newAlbum = {
+            id: albumIdCounter++,
+            name: newName,
+            songs: [activeSongFile]
+        };
+        albums.push(newAlbum);
+    }
+
+    // 加入选中的专辑
+    checkedIds.forEach(id => {
+        const album = albums.find(a => a.id === id);
+        if (album && !album.songs.includes(activeSongFile)) {
+            album.songs.push(activeSongFile);
+        }
+    });
+
+    closeModal('addAlbumModal');
+    filterAlbums();
+    if (currentAlbumId) filterAlbumSongs();
+    activeSongFile = null;
+};
+
+// ========== 移出专辑弹窗 ==========
+function openRemoveAlbumModal(file) {
+    activeSongFile = file;
+    // 找出包含这首歌的专辑
+    const inAlbums = albums.filter(a => a.songs.includes(file));
+    const list = document.getElementById('removeAlbumCheckList');
+    list.innerHTML = '';
+
+    if (inAlbums.length === 0) {
+        list.innerHTML = '<div style="color:#999;text-align:center;padding:20px 0;">该歌曲不在任何专辑中</div>';
+    } else {
+        inAlbums.forEach(album => {
+            const item = document.createElement('label');
+            item.className = 'modal-check-item';
+            item.innerHTML = `
+                <input type="checkbox" value="${album.id}">
+                <span>${album.name}</span>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    openModal('removeAlbumModal');
+}
+
+document.getElementById('confirmRemoveAlbum').onclick = () => {
+    if (!activeSongFile) return;
+    const checkedIds = Array.from(document.querySelectorAll('#removeAlbumCheckList input:checked'))
+        .map(input => parseInt(input.value));
+    
+    checkedIds.forEach(id => {
+        const album = albums.find(a => a.id === id);
+        if (album) {
+            album.songs = album.songs.filter(s => s !== activeSongFile);
+        }
+    });
+
+    closeModal('removeAlbumModal');
+    filterAlbums();
+    if (currentAlbumId) filterAlbumSongs();
+    activeSongFile = null;
+};
+
+// ========== 弹窗通用方法 ==========
+function openModal(id) {
+    document.getElementById(id).classList.add('show');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+}
+// 点击遮罩关闭
+document.querySelectorAll('.modal-mask').forEach(mask => {
+    mask.onclick = (e) => {
+        if (e.target === mask) mask.classList.remove('show');
+    };
+});
+
+// ========== 长按拖拽通用函数（优化版：防重复绑定、拖拽后阻止点击） ==========
+function bindLongPressDrag(container, selector, onDrop) {
+    // 先移除之前绑定的事件，避免重复叠加
+    if (container._dragHandlers) {
+        const { startDrag, moveDrag, endDrag } = container._dragHandlers;
+        container.removeEventListener('mousedown', startDrag);
+        document.removeEventListener('mousemove', moveDrag);
+        document.removeEventListener('mouseup', endDrag);
+        container.removeEventListener('touchstart', startDrag);
+        document.removeEventListener('touchmove', moveDrag);
+        document.removeEventListener('touchend', endDrag);
+    }
+
+    let longPressTimer = null;
+    let dragItem = null;
+    let isDragging = false;
+    const longPressTime = 500; // 长按触发时间ms
+
+    const startDrag = (e) => {
+        const item = e.target.closest(selector);
+        if (!item || !container.contains(item)) return;
+        dragItem = item;
+        isDragging = false;
+        
+        longPressTimer = setTimeout(() => {
+            isDragging = true;
+            item.classList.add('dragging');
+            if (e.type === 'touchstart') e.preventDefault();
+        }, longPressTime);
+    };
+
+    const moveDrag = (e) => {
+        if (!isDragging || !dragItem) return;
+        e.preventDefault();
+        
+        // 清除所有指示线
+        container.querySelectorAll(selector).forEach(el => {
+            el.classList.remove('drop-above', 'drop-below');
+        });
+
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        const elements = Array.from(container.querySelectorAll(selector));
+        let target = null;
+        let position = 'below';
+
+        for (let el of elements) {
+            if (el === dragItem) continue;
+            const rect = el.getBoundingClientRect();
+            const middle = rect.top + rect.height / 2;
+            if (clientY < middle) {
+                target = el;
+                position = 'above';
+                break;
+            } else {
+                target = el;
+                position = 'below';
+            }
+        }
+
+        if (target) {
+            target.classList.add(position === 'above' ? 'drop-above' : 'drop-below');
+        }
+    };
+
+    const endDrag = (e) => {
+        clearTimeout(longPressTimer);
+        if (!isDragging || !dragItem) {
+            dragItem = null;
+            return;
+        }
+
+        const clientY = e.type.includes('touch') ? e.changedTouches[0].clientY : e.clientY;
+        const elements = Array.from(container.querySelectorAll(selector));
+        let target = null;
+        let position = 'below';
+
+        for (let el of elements) {
+            if (el === dragItem) continue;
+            const rect = el.getBoundingClientRect();
+            const middle = rect.top + rect.height / 2;
+            if (clientY < middle) {
+                target = el;
+                position = 'above';
+                break;
+            } else {
+                target = el;
+                position = 'below';
+            }
+        }
+
+        if (target && onDrop) {
+            onDrop(dragItem, target, position);
+        }
+
+        // 拖拽结束后阻止本次click事件，避免误触发播放
+        const preventClick = (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+            dragItem.removeEventListener('click', preventClick, true);
+        };
+        dragItem.addEventListener('click', preventClick, true);
+
+        // 清理样式
+        container.querySelectorAll(selector).forEach(el => {
+            el.classList.remove('dragging', 'drop-above', 'drop-below');
+        });
+
+        isDragging = false;
+        dragItem = null;
+    };
+
+    // 保存处理函数引用，方便后续移除
+    container._dragHandlers = { startDrag, moveDrag, endDrag };
+
+    // 鼠标事件
+    container.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', moveDrag);
+    document.addEventListener('mouseup', endDrag);
+
+    // 触屏事件
+    container.addEventListener('touchstart', startDrag, { passive: false });
+    document.addEventListener('touchmove', moveDrag, { passive: false });
+    document.addEventListener('touchend', endDrag);
+}
+
+// ========== 初始化 ==========
+modeBtn.innerText = modeText[playMode];
+filterSong();
+playSong(0);
+filterAlbums();
+</script>
+</body>
+</html>
